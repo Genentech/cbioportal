@@ -76,6 +76,12 @@
               <targetPath>WEB-INF/classes</targetPath>
               <filtering>true</filtering>
             </resource>
+            <resource>
+              <directory>src/main/webapp/WEB-INF/jsp/global</directory>
+              <include>footer.jsp</include>
+              <targetPath>WEB-INF/jsp/global</targetPath>
+              <filtering>true</filtering>
+            </resource>
           </webResources>
         </configuration>
       </plugin>
