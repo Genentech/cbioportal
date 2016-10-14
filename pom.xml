@@ -129,7 +129,7 @@
     <jacoco-maven-plugin.version>0.7.6.201602180812</jacoco-maven-plugin.version>
     <mockito.version>1.10.19</mockito.version>
 
-    <final.war.name>cbioportal-${project.version}</final.war.name>
+    <final.war.name>${BIOPORTAL_NAME}</final.war.name>
 
 	<db.test.driver>com.mysql.jdbc.Driver</db.test.driver>
     <!-- For MySQL < 5.5 change 'default_storage_engine' to 'storage_engine' -->
