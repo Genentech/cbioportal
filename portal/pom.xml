@@ -183,7 +183,8 @@
     </plugins>
 
     <filters>
-        <filter>../src/main/resources/portal.properties</filter>
+        <filter>${PORTAL_HOME}/src/main/resources/portal.properties</filter>
+        <filter>${PORTAL_HOME}/src/main/resources/spring.security.url.intercepts</filter>
     </filters>
     
     <!-- prevent some resources from getting into war -->

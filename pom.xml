@@ -38,7 +38,7 @@
       <id>external</id>
       <properties>
         <importer-main-class>org.mskcc.cbio.importer.PortalImporterTool</importer-main-class>
-        <final-war-name>cbioportal</final-war-name>
+        <final-war-name>${BIOPORTAL_NAME}</final-war-name>
       </properties>
     </profile>
     <profile>
@@ -93,11 +93,11 @@
                 <configuration>
                   <tasks>
                     <copy
-                    file="${basedir}/src/main/resources/portal.properties.EXAMPLE"
-                    tofile="${basedir}/src/main/resources/portal.properties" />
+                    file="${PORTAL_HOME}/src/main/resources/portal.properties.EXAMPLE"
+                    tofile="${PORTAL_HOME}/src/main/resources/portal.properties-example" />
                     <copy
-                    file="${basedir}/src/main/resources/log4j.properties.EXAMPLE"
-                    tofile="${basedir}/src/main/resources/log4j.properties" />
+                    file="${PORTAL_HOME}/src/main/resources/log4j.properties.EXAMPLE"
+                    tofile="${PORTAL_HOME}/src/main/resources/log4j.properties-example" />
                   </tasks>
                 </configuration>
               </execution>
