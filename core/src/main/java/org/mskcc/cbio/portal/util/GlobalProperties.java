@@ -41,7 +41,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.io.*;
 import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
 import java.util.*;
 import java.net.URL;
 
@@ -98,6 +97,17 @@ public class GlobalProperties {
     public static final String SKIN_RIGHT_NAV_SHOW_TESTIMONIALS = "skin.right_nav.show_testimonials";
     public static final String SKIN_AUTHORIZATION_MESSAGE = "skin.authorization_message";
     public static final String DEFAULT_AUTHORIZATION_MESSAGE = "Access to this portal is only available to authorized users.";
+    public static final String SKIN_EXAMPLE_STUDY_QUERIES = "skin.example_study_queries";
+    public static final String DEFAULT_SKIN_EXAMPLE_STUDY_QUERIES =
+            "tcga\n" +
+            "tcga -provisional\n" +
+            "tcga -moratorium\n" +
+            "tcga OR icgc\n" +
+            "-\"cell line\"\n" +
+            "prostate mskcc\n" +
+            "esophageal OR stomach\n" +
+            "serous\n" +
+            "breast";
     public static final String SKIN_DATASETS_HEADER = "skin.data_sets_header";
     public static final String DEFAULT_SKIN_DATASETS_HEADER = "The portal currently contains data from the following " +
             "cancer genomics studies.  The table below lists the number of available samples per data type and tumor.";
@@ -113,6 +123,8 @@ public class GlobalProperties {
     public static final String PATIENT_VIEW_DIGITAL_SLIDE_META_URL = "digitalslidearchive.meta.url";
     public static final String PATIENT_VIEW_TCGA_PATH_REPORT_URL = "tcga_path_report.url";
     public static final String ONCOKB_URL = "oncokb.url";
+
+    public static final String SESSION_SERVICE_URL = "session.service.url";
 
     // properties for showing the right logo in the header_bar and default logo
     public static final String SKIN_RIGHT_LOGO = "skin.right_logo";
@@ -132,7 +144,7 @@ public class GlobalProperties {
     public static final String DEFAULT_SKIN_WHATS_NEW_BLURB = 
             "<form action=\"http://groups.google.com/group/cbioportal-news/boxsubscribe\"> &nbsp;&nbsp;&nbsp;&nbsp;" +
             "<b>Sign up for low-volume email news alerts:</b></br> &nbsp;&nbsp;&nbsp;&nbsp;<input type=\"text\" " +
-            "name=\"email\"> <input type=\"submit\" name=\"sub\" value=\"Subscribe\"> " +
+            "name=\"email\" title=\"Subscribe to mailing list\"> <input type=\"submit\" name=\"sub\" value=\"Subscribe\"> " +
             "</form> &nbsp;&nbsp;&nbsp;&nbsp;<b>Or follow us <a href=\"http://www.twitter.com/cbioportal\">" +
             "<i>@cbioportal</i></a> on Twitter</b>\n";
 
@@ -148,7 +160,6 @@ public class GlobalProperties {
             "cbioportal-access@cbio.mskcc.org</a>";
 
     // properties for hiding/showing tabs in the patient view
-    public static final String SKIN_PATIENT_VIEW_SHOW_CLINICAL_TRIALS_TAB="skin.patient_view.show_clinical_trials_tab";
     public static final String SKIN_PATIENT_VIEW_SHOW_DRUGS_TAB="skin.patient_view.show_drugs_tab";
 
     // property for setting the saml registration html
@@ -163,7 +174,7 @@ public class GlobalProperties {
 
     // properties for the FAQ, about us, news and examples
     public static final String SKIN_BASEURL="skin.documentation.baseurl";
-    public static final String DEFAULT_SKIN_BASEURL="https://github.com/cBioPortal/cbioportal/wiki/";
+    public static final String DEFAULT_SKIN_BASEURL="https://raw.githubusercontent.com/cBioPortal/cbioportal/master/docs/";
     public static final String SKIN_DOCUMENTATION_MARKDOWN="skin.documentation.markdown";
 
     public static final String SKIN_FAQ="skin.documentation.faq";
@@ -191,6 +202,14 @@ public class GlobalProperties {
     public static final String RECACHE_STUDY_AFTER_UPDATE = "recache_study_after_update";
     
     public static final String DB_VERSION = "db.version";
+    
+    public static final String DARWIN_AUTH_URL = "darwin.auth_url";
+    public static final String DARWIN_RESPONSE_URL = "darwin.response_url";
+    public static final String DARWIN_AUTHORITY = "darwin.authority";
+    public static final String CIS_USER = "cis.user";
+    public static final String DISABLED_TABS = "disabled_tabs";
+    
+    public static final String PRIORITY_STUDIES = "priority_studies";
     
     private static Log LOG = LogFactory.getLog(GlobalProperties.class);
     private static Properties properties = initializeProperties();
@@ -516,17 +535,11 @@ public class GlobalProperties {
         String showFlag = properties.getProperty(SKIN_SHOW_VISUALIZE_YOUR_DATA_TAB);
         return showFlag == null || Boolean.parseBoolean(showFlag);
     }
-    // show or hide the clinical trials tab in the patient view
-    public static boolean showClinicalTrialsTab()
-    {
-        String showFlag = properties.getProperty(SKIN_PATIENT_VIEW_SHOW_CLINICAL_TRIALS_TAB);
-        return showFlag == null || Boolean.parseBoolean(showFlag);
-    }
-    // show or hide the drugs tab in the patient view
+    // show the drugs tab in the patient view
     public static boolean showDrugsTab()
     {
         String showFlag = properties.getProperty(SKIN_PATIENT_VIEW_SHOW_DRUGS_TAB);
-        return showFlag == null || Boolean.parseBoolean(showFlag);
+        return showFlag != null && Boolean.parseBoolean(showFlag);
     }
     // get the text for the What's New in the right navigation bar
     public static String getRightNavWhatsNewBlurb(){
@@ -554,6 +567,12 @@ public class GlobalProperties {
     {
         String authMessage = properties.getProperty(SKIN_AUTHORIZATION_MESSAGE);
         return authMessage == null ? DEFAULT_AUTHORIZATION_MESSAGE : authMessage;
+    }
+
+    public static String getExampleStudyQueries() {
+        return properties.getProperty(
+                SKIN_EXAMPLE_STUDY_QUERIES,
+                DEFAULT_SKIN_EXAMPLE_STUDY_QUERIES);
     }
 
     // added usage of default data sets header
@@ -585,7 +604,7 @@ public class GlobalProperties {
 
     public static String getLinkToCancerStudyView(String cancerStudyId)
     {
-        return "study.do?" + org.mskcc.cbio.portal.servlet.QueryBuilder.CANCER_STUDY_ID
+        return "study?" + org.mskcc.cbio.portal.servlet.CancerStudyView.ID
                 + "=" + cancerStudyId;
     }
 
@@ -612,21 +631,14 @@ public class GlobalProperties {
         return url+caseId;
     }
 
-    public static String[] getTCGAPathReportUrl(String typeOfCancer)
+    public static String getTCGAPathReportUrl()
     {
         String url = GlobalProperties.getProperty(PATIENT_VIEW_TCGA_PATH_REPORT_URL);
         if (url == null) {
             return null;
-        }
+        }       
         
-        if (typeOfCancer.equalsIgnoreCase("coadread")) {
-            return new String[] {
-                url.replace("{cancer.type}", "coad"),
-                url.replace("{cancer.type}", "read")
-            };
-        }
-        
-        return new String[] {url.replace("{cancer.type}", typeOfCancer)};
+        return url;
     }
 
     // function for getting the custom tabs for the header
@@ -638,13 +650,25 @@ public class GlobalProperties {
         }
         return null;
     }
-    
+   
+    public static String getSessionServiceUrl()
+    {
+        return properties.getProperty(SESSION_SERVICE_URL);
+    }
+ 
     public static String getOncoKBUrl()
     {
         String oncokbUrl = properties.getProperty(ONCOKB_URL);
 
+        // This only applies if there is no oncokb.url property in the portal.properties file.
+        // Empty string should be used if you want to disable the OncoKB annotation.
+        if(oncokbUrl == null) {
+            oncokbUrl = "http://oncokb.org/legacy-api/";
+        }
+
         //Test connection of OncoKB website.
-        if(oncokbUrl != null && !oncokbUrl.isEmpty()) {
+        if(!oncokbUrl.isEmpty()) {
+
             try {
                 URL url = new URL(oncokbUrl+"access");
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
@@ -715,6 +739,76 @@ public class GlobalProperties {
         return version;
     }
     
+    public static String getDarwinAuthCheckUrl() {
+        String darwinAuthUrl = "";
+        try{
+            darwinAuthUrl = properties.getProperty(DARWIN_AUTH_URL).trim();            
+        }
+        catch (NullPointerException e){}
+        
+        return darwinAuthUrl;
+    }
+    
+    public static String getDarwinResponseUrl() {
+        String darwinResponseUrl = "";
+        try{
+            darwinResponseUrl = properties.getProperty(DARWIN_RESPONSE_URL).trim();
+        }
+        catch (NullPointerException e) {}
+        
+        return darwinResponseUrl;
+    }
+    
+    public static String getDarwinAuthority() { 
+        String darwinAuthority = "";
+        try{
+            darwinAuthority = properties.getProperty(DARWIN_AUTHORITY).trim();
+        }
+        catch (NullPointerException e) {}
+        
+        return darwinAuthority;
+    }
+    
+    public static Map<String, Set<String>> getPriorityStudies() {
+	    Map<String, Set<String>> priorityStudiesObject = new HashMap<>();
+	    try {
+		    String priorityStudies = properties.getProperty(PRIORITY_STUDIES).trim();
+		    for (String priorityStudyCategory: priorityStudies.split(";")) {
+			    String[] elements = priorityStudyCategory.split("[#,]");
+			    String category = elements[0];
+			    Set<String> studies = new HashSet<>();
+			    for (int i=1; i<elements.length; i++) {
+				    studies.add(elements[i]);
+			    }
+			    if (studies.size() > 0) {
+				priorityStudiesObject.put(category, studies);
+			    }
+		    }
+	    } catch (NullPointerException e) {}
+	    return priorityStudiesObject;
+    }
+    
+    public static String getCisUser() {
+        String cisUser = "";
+        try{
+            cisUser = properties.getProperty(CIS_USER).trim();
+        }
+        catch (NullPointerException e) {}
+        
+        return cisUser;         
+    }
+    
+    public static List<String> getDisabledTabs() {
+        String disabledTabs = "";
+        try {
+            disabledTabs = properties.getProperty(DISABLED_TABS).trim();
+        }
+        catch (NullPointerException e) {}
+        
+        String[] tabs = disabledTabs.split("\\|");
+        return (tabs.length > 0 && disabledTabs.length() > 0) ? Arrays.asList(tabs) : new ArrayList<String>();
+    }
+
     public static void main(String[] args)
     {
         System.out.println(getAppVersion());

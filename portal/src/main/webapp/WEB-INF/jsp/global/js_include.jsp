@@ -65,6 +65,7 @@
 <script type="text/javascript" src="js/lib/plotly.min.js?<%=GlobalProperties.getAppVersion()%>"></script>
 <script type="text/javascript" src="js/lib/igv_webstart.js?<%=GlobalProperties.getAppVersion()%>"></script>
 <script type="text/javascript" src="js/lib/genomespace.js"></script>
+<script type="text/javascript" src="js/lib/jstat.min.js"></script>
 <script src="https://gsui.genomespace.org/jsui/upload/gsuploadwindow.js" type="text/javascript"></script>
 
 
@@ -90,7 +91,6 @@
 <script type="text/javascript" src="js/src/dynamicQuery.js?<%=GlobalProperties.getAppVersion()%>"></script>
 <script type="text/javascript" src="js/src/gene_set.js?<%=GlobalProperties.getAppVersion()%>"></script>
 <script type="text/javascript" src="js/src/QueryGeneData.js?<%=GlobalProperties.getAppVersion()%>"></script>
-<script type="text/javascript" src="js/src/DataManagerFactory.js?<%=GlobalProperties.getAppVersion()%>"></script>
 <script type="text/javascript" src="js/src/cbio-util.js?<%=GlobalProperties.getAppVersion()%>"></script>
 <script type="text/javascript" src="js/src/download-util.js?<%=GlobalProperties.getAppVersion()%>"></script>
 <script type="text/javascript" src="js/src/customCaseSet.js?<%=GlobalProperties.getAppVersion()%>"></script>

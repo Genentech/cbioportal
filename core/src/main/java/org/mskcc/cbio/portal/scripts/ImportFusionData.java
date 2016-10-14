@@ -53,12 +53,14 @@ public class ImportFusionData
 
 	private File fusionFile;
 	private int geneticProfileId;
+                     private String genePanel;
 
 	public ImportFusionData(File fusionFile,
-			int geneticProfileId)
+			int geneticProfileId, String genePanel)
 	{
 		this.fusionFile = fusionFile;
 		this.geneticProfileId = geneticProfileId;
+                                           this.genePanel = genePanel;
 	}
 
 	public void importData() throws IOException, DaoException
@@ -97,10 +99,18 @@ public class ImportFusionData
 
 				// process case id
 				String barCode = record.getTumorSampleID();
-                ImportDataUtil.addPatients(new String[] { StableIdUtil.getPatientId(barCode) }, geneticProfileId);
-                ImportDataUtil.addSamples(new String[] { StableIdUtil.getSampleId(barCode) }, geneticProfileId);
-		        Sample sample = DaoSample.getSampleByCancerStudyAndSampleId(geneticProfile.getCancerStudyId(),
+				// backwards compatible part (i.e. in the new process, the sample should already be there. TODO - replace this workaround later with an exception:
+				Sample sample = DaoSample.getSampleByCancerStudyAndSampleId(geneticProfile.getCancerStudyId(),
+                        StableIdUtil.getSampleId(barCode));
+				if (sample == null ) {
+					ImportDataUtil.addPatients(new String[] { barCode }, geneticProfileId);
+	                // add the sample (except if it is a 'normal' sample):
+					ImportDataUtil.addSamples(new String[] { barCode }, geneticProfileId);
+				}
+		        // check again (repeated because of workaround above):
+				sample = DaoSample.getSampleByCancerStudyAndSampleId(geneticProfile.getCancerStudyId(),
                                                                             StableIdUtil.getSampleId(barCode));
+		        // can be null in case of 'normal' sample:
 		        if (sample == null) {
 		        	assert StableIdUtil.isNormal(barCode);
 		        	line = buf.readLine();
@@ -108,7 +118,12 @@ public class ImportFusionData
 		        }
 				if (!DaoSampleProfile.sampleExistsInGeneticProfile(sample.getInternalId(), geneticProfileId))
 				{
-					DaoSampleProfile.addSampleProfile(sample.getInternalId(), geneticProfileId);
+                                                                                                            if (genePanel != null) {
+                                                                                                                DaoSampleProfile.addSampleProfile(sample.getInternalId(), geneticProfileId, GeneticProfileUtil.getGenePanelId(genePanel));
+                                                                                                            }
+                                                                                                            else {
+                                                                                                                DaoSampleProfile.addSampleProfile(sample.getInternalId(), geneticProfileId, null);
+                                                                                                            }      
 				}
 
 				//  Assume we are dealing with Entrez Gene Ids (this is the best / most stable option)
@@ -162,7 +177,7 @@ public class ImportFusionData
 					}
 
 					// add fusion (as a mutation)
-					DaoMutation.addMutation(mutation, addEvent);
+					DaoMutation.addMutation(mutation, addEvent);                                                                                      
 				}
 			}
 		}

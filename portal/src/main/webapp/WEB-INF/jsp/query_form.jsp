@@ -37,6 +37,9 @@
 <%@ page import="java.net.URLEncoder" %>
 <%@ page import="org.apache.commons.lang.*" %>
 <%@ page import="org.mskcc.cbio.portal.util.GlobalProperties" %>
+<%@ page import="java.util.ArrayList" %>
+<%@ page import="java.util.Map" %>
+<%@ page import="java.util.Set" %>
 
 <%
     org.mskcc.cbio.portal.servlet.ServletXssUtil localXssUtil = ServletXssUtil.getInstance();
@@ -81,6 +84,9 @@
     if (localGeneSetChoice == null) {
         localGeneSetChoice = "user-defined-list";
     }
+    // Get prioritized studies for study selector
+    
+    Map<String, Set<String>> priorityStudies = GlobalProperties.getPriorityStudies();
 %>
 
 <%
@@ -111,6 +117,25 @@
 
 <script type="text/javascript" src="js/lib/oql/oql-parser.js" charset="utf-8"></script>
 <script type="text/javascript">
+
+    // Prioritized studies for study selector
+    window.priority_studies = [];
+    <% for (Map.Entry<String, Set<String>> entry : priorityStudies.entrySet()) {
+            if (entry.getValue().size() > 0) {
+                    out.println("window.priority_studies.push({'category':'"+entry.getKey()+"',");
+                    out.println("'studies':[");
+                    int i = 0;
+            for (String s: entry.getValue()) {
+                    if (i >= 1) {
+                            out.println(",");
+                    }
+                    out.println("'"+s+"'");
+                    i++;
+            }
+            out.println("]})");
+            }
+        } %>
+            
     // Store the currently selected options as global variables;
     window.cancer_study_id_selected = '<%= localCancerTypeId%>';
     window.cancer_study_list_param = '<%= QueryBuilder.CANCER_STUDY_LIST%>';
@@ -132,6 +157,7 @@
             }
         }
     %>
+
 </script>
 <div class="main_query_panel">
     <div id="main_query_form">
@@ -145,12 +171,13 @@
         	value='<%= request.getParameter("clinical_param_selection") %>'>
         <input type="hidden" id="<%= QueryBuilder.TAB_INDEX %>" name="<%= QueryBuilder.TAB_INDEX %>"
            value="<%= localTabIndex %>">
-        <p/>
+        <p>
         <% conditionallyOutputTransposeMatrixOption (localTabIndex, clientTranspose, out); %>
-        &nbsp;<br/>
-        <input id="main_submit" class="btn btn-default btn-lg" type="submit" onclick="submitHandler()" name="<%= QueryBuilder.ACTION_NAME%>" value="<%= QueryBuilder.ACTION_SUBMIT %>"/>
+        </p>
+        <p>
+        <input id="main_submit" class="btn btn-default btn-lg" onclick="submitHandler()" name="<%= QueryBuilder.ACTION_NAME%>" value="<%= QueryBuilder.ACTION_SUBMIT %>" title='Submit Query' readonly/>
         <% conditionallyOutputGenomespaceOption(localTabIndex, out); %>
-
+        </p>
         </form>
     </div>
 </div>      
@@ -168,11 +195,11 @@
         String checked = hasUserSelectedTheTransposeOption(clientTranspose);
         out.println ("&nbsp;Clicking submit will generate a tab-delimited file "
             + " containing your requested data.");
-        out.println ("<p/>");
+        out.println ("<div class='checkbox'><label>");
         out.println ("<input id='client_transpose_matrix' type=\"checkbox\" "+ checked + " name=\""
                 + QueryBuilder.CLIENT_TRANSPOSE_MATRIX
-                + "\"/> Transpose data matrix.");
-        out.println ("<p/>");
+                + "\"/> <p>Transpose data matrix.</p>");
+        out.println ("</label></div>");
     }
 
     private String hasUserSelectedTheTransposeOption(String clientTranspose) {
@@ -192,7 +219,7 @@
                         "title=\"Send data matrix to GenomeSpace.\" " +
                         "href=\"#\" onclick=\"prepGSLaunch($('#main_form'), " +
                         "$('#select_single_study').val(), " +
-                        "$('#genomic_profiles'));\"><img src=\"images/send-to-gs.png\" alt=\"\"/></a>");
+                        "$('#genomic_profiles'));\"><img src=\"images/send-to-gs.png\" alt=\"Send to GenomeSpace\"/></a>");
         }
     }
 %>

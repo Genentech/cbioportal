@@ -171,6 +171,9 @@ A:hover {
 
 #main_submit {
     background-color: #e6e6e6;    
+    color: transparent;     
+    display: inline-block;           
+    text-shadow: 0 0 0 black;
 }
 
 .wpasA {
@@ -563,6 +566,16 @@ pre code{
     max-width: 1200px;
 }
 
+#oncoprint_zoom_scale_input {
+    font-size: 11px;
+}
+
+#oncoprint_zoom_scale_input_tail:hover, #oncoprint_zoom_scale_input_tail:active {
+    background-color: #e6e6e6;
+    border-color: #cccccc;
+    box-shadow: none;
+}
+
 input[type=range]#oncoprint_zoom_slider {
     /*removes default webkit styles*/
     -webkit-appearance: none;
@@ -713,7 +726,8 @@ td.op_data_cell{
     font: 14px verdana, arial, helvetica, sans-serif;
 }
 
-#genomic_profiles input {
+#genomic_profiles .checkbox,
+#genomic_profiles .radio {
    margin-left: 40px;
 }
 
@@ -1422,8 +1436,21 @@ cursor: default;
 }
 
 /*  Genomic Profiles Input Box */
-#genomic_profiles input{
+#genomic_profiles .checkbox,
+#genomic_profiles .radio {
+    margin-bottom: 0;
     margin-left: 25px;
+    margin-top: 0;
+}
+
+#genomic_profiles .checkbox input,
+#genomic_profiles .radio input {
+    margin-right: 1em;
+    postition: relative;
+}
+
+.score_threshold label {
+    font-weight: normal;
 }
 
 /* This is the gene_list input text area */
@@ -1652,45 +1679,18 @@ ul.ui-autocomplete li.ui-menu-item { font-size: 0.6em; text-align: left; }
     padding-bottom: -2px;
 }
 
-/* OncoKB integration styles */
-/*Default max width is 280px*/
-.oncokb-qtip {
-    max-width: 600px !important;
+.annotation-item {
+    width: 22px;
+    height: 24px;
+    line-height: 24px;
+    float: left;
+    display: inline-block;
 }
-.oncokb-qtip-sm {
-    max-width: 400px !important;
+
+.annotation-item img {
+    margin: 6px 0 2px 6px;
 }
-.oncokb-qtip-xs {
-    max-width: 330px !important;
-}
-.oncokb-qtip table.dataTable {
-    font-size: 11px !important;
-}
-ul.oncokb {
-    padding-top: 5px;
-    padding-left: 20px;
-}
-ul.oncokb li {
-    margin: 2px 0 2px 0;
-}
-.oncokb.oncokb_alteration svg{
-    vertical-align: middle;
-}
-.mutationTableHeaderRadioLabel label img{
-    vertical-align: text-bottom;
-}
-.qtip-content div.oncokb{
-    padding-top: 5px;
-}
-.oncokbFeedback {
-    text-decoration: underline;
-}
-.oncokbFeedback:hover, .bootstrap-dialog-close:hover {
-    cursor: pointer;
-}
-.oncokb .fa-angle-right:hover, .oncokb .fa-angle-down:hover {
-    cursor: pointer;
-}
+
 .bootstrap-dialog-close {
     float: right;
     width: 100%;

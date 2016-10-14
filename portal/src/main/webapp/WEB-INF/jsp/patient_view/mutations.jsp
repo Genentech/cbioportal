@@ -30,9 +30,9 @@
  - along with this program.  If not, see <http://www.gnu.org/licenses/>.
 --%>
 
-<%@ page import="org.mskcc.cbio.portal.servlet.PatientView" %>
-<%@ page import="org.mskcc.cbio.portal.servlet.MutationsJSON" %>
 <%@ page import="org.mskcc.cbio.portal.dao.DaoMutSig" %>
+<%@ page import="org.mskcc.cbio.portal.servlet.MutationsJSON" %>
+<%@ page import="org.mskcc.cbio.portal.servlet.PatientView" %>
 
 <script type="text/javascript" src="js/lib/igv_webstart.js?<%=GlobalProperties.getAppVersion()%>"></script>
 <script type="text/javascript" src="js/src/patient-view/PancanMutationHistogram.js?<%=GlobalProperties.getAppVersion()%>"></script>
@@ -40,13 +40,6 @@
 <link href="css/mutationMapper.min.css?<%=GlobalProperties.getAppVersion()%>" type="text/css" rel="stylesheet"/>
 
 <script type="text/javascript">
-    var mutTableIndices =
-            ["id","case_ids","gene","aa", "annotation", "chr","start","end","ref","_var","validation","type",
-             "tumor_freq","tumor_var_reads","tumor_ref_reads","norm_freq","norm_var_reads",
-             "norm_ref_reads","bam","cna","mrna","altrate","pancan_mutations", "cosmic","ma","drug"];
-
-    mutTableIndices = cbio.util.arrayToAssociatedArrayIndices(mutTableIndices);
-
     _.templateSettings = {
         interpolate : /\{\{(.+?)\}\}/g
     };
@@ -115,23 +108,12 @@
             });
         });
     };
+    var mutationOncokbInstance;
 
     function buildMutationsDataTable(mutations,mutEventIds, table_id, sDom, iDisplayLength, sEmptyInfo, compact) {
         var data = [];
-        var oncokbInstance;
-        if(OncoKB.getAccess()) {
-            var oncokbInstanceManager = new OncoKB.addInstanceManager();
-            oncokbInstance = oncokbInstanceManager.addInstance('patient-mutation');
-            if(oncokbGeneStatus) {
-                oncokbInstance.setGeneStatus(oncokbGeneStatus);
-            }
-            oncokbInstance.setTumorType(OncoKB.utils.getTumorTypeFromClinicalDataMap(clinicalDataMap));
-        }
         for (var i=0, nEvents=mutEventIds.length; i<nEvents; i++) {
             var _id = mutEventIds[i];
-            if(oncokbInstance) {
-                oncokbInstance.addVariant(_id, mutations.getValue(_id, "entrez"), mutations.getValue(_id, "gene"), mutations.getValue(_id, "aa"), null, mutations.getValue(_id, "type"), findCosmic(mutations.getValue(_id, "cosmic"), mutations.getValue(_id, "aa")), mutations.getValue(_id, "is-hotspot"));
-            }
             data.push([mutEventIds[i]]);
         }
 
@@ -208,7 +190,7 @@
                                 if(mutations.colExists('oncokb')) {
                                     ret = "<span class='"+table_id+"-tip oncokb oncokb_gene' gene='"+gene+"' oncokbId='"+source[0]+"'>"+ret+"</span>";
                                 }else if(OncoKB.getAccess()){
-                                    ret += "<img width='12' height='12' class='loader' src='images/ajax-loader.gif'/>";
+                                    ret += "<img width='14' height='14' src='images/ajax-loader.gif' alt='loading' />";
                                 } else {
                                     ret = "<div class='"+table_id
                                             +"-tip' alt='"+tip+"'>"+ret+"</div>";
@@ -235,27 +217,31 @@
                                 if (mutations.colExists('oncokb')) {
                                     var oncokbInfo = mutations.getValue(source[0], 'oncokb');
 
-                                    ret += "&nbsp;<span class='oncokb oncokb_alteration oncogenic' oncokbId='" + source[0] + "'></span>";
-                                    ret += "<span class='oncokb oncokb_column' oncokbId='" + source[0] + "'></span>";
+                                    ret += "<span class='annotation-item oncokb oncokb_alteration oncogenic' oncokbId='" + source[0] + "'></span>";
                                 } else if (OncoKB.getAccess()) {
-                                    ret += '<img width="13" height="13" class="loader" src="images/ajax-loader.gif"/>';
+                                    ret += '<span class="annotation-item"><img width="14" height="14" src="images/ajax-loader.gif" alt="loading" /></span>';
                                 }
 
                                 var mcg = mutations.getValue(source[0], 'mycancergenome');
                                 if (!cbio.util.checkNullOrUndefined(mcg) && mcg.length) {
-                                    ret += "&nbsp;<span class='" + table_id + "-tip'" +
+                                    ret += "<span class='annotation-item " + table_id + "-tip'" +
                                             "alt='<b>My Cancer Genome links:</b><br/><ul style=\"list-style-position: inside;padding-left:0;\"><li>" + mcg.join("</li><li>") + "</li></ul>'>" +
-                                            "<img src='images/mcg_logo.png'></span>";
+                                            "<img width='14' height='14' src='images/mcg_logo.png'></span>";
+                                }else {
+                                    ret += "<span class='annotation-item'></span>";
                                 }
                                 if (showHotspot && mutations.getValue(source[0], 'is-hotspot')) {
-                                    ret += "<span class='" + table_id + "-hotspot' alteration='" + aa + "' oncokbId='" + source[0] + "' style='margin-left:5px;'><img width='13' height='13' src='images/oncokb-flame.svg'></span>";
+                                    ret += "<span class='annotation-item " + table_id + "-hotspot' alteration='" + aa + "' oncokbId='" + source[0] + "'><img width='14' height='14' src='images/oncokb-flame.svg'></span>";
+                                }else {
+                                    ret += "<span class='annotation-item'></span>";
                                 }
                                 return ret;
                             } else if (type === 'sort') {
                                 var datum = {
                                     mutation: {
                                         myCancerGenome: [],
-                                        isHotspot: false
+                                        isHotspot: false,
+                                        get: function(a) { return this[a];}
                                     },
                                     oncokb:{}
                                 };
@@ -288,8 +274,9 @@
                                 if (aa.length>2&&aa.substring(0,2)=='p.')
                                     aa = aa.substring(2);
                                 var ret = "<b><i>"+aa+"</i></b>";
-                                if (mutations.getValue(source[0],'status')==="Germline")
-                                    ret += "&nbsp;<span style='background-color:red;font-size:x-small;' class='"
+                                var status = mutations.getValue(source[0],'status');
+                                if (!cbio.util.checkNullOrUndefined(status) && status.toLowerCase()==="germline")
+                                    ret += "&nbsp;<span style='background-color:red;color:white;font-size:x-small;' class='"
                                             +table_id+"-tip' alt='Germline mutation'>Germline</span>";
 
                                 var aaOriginal = mutations.getValue(source[0], 'aa-orig');
@@ -750,7 +737,7 @@
                                 var proteinPos = hugo+"_"+mutations.getValue(source[0], "protein-start");
 
                                 var ret = "<div class='pancan_mutations_histogram_thumbnail' protein_pos='"+proteinPos+"' gene='"+hugo+"' keyword='"+keyword+"'></div>";
-                                    ret += "<img width='15' height='15' class='pancan_mutations_histogram_wait' src='images/ajax-loader.gif'/>";
+                                    ret += "<img width='14' height='14' class='pancan_mutations_histogram_wait' src='images/ajax-loader.gif' alt='loading' />";
                                     ret += "<div class='pancan_mutations_histogram_count' style='float:right' protein_pos='"+proteinPos+"' gene='"+hugo+"' keyword='"+keyword+"'></div>";
 
                                 return ret;
@@ -919,21 +906,21 @@
                     addNoteTooltip("."+table_id+"-tip");
                     addNoteTooltip("."+table_id+"-ma-tip",null,{my:'top right',at:'bottom center',viewport: $(window)});
                     if(showHotspot) {
-                        addNoteTooltip('.'+table_id+'-hotspot', "<b>Recurrent Hotspot</b><br/>This mutated amino acid was identified as a recurrent hotspot (statistical significance, q-value < 0.01) in a set of 11,119 tumor samples of various cancer types (based on <a href='http://www.ncbi.nlm.nih.gov/pubmed/26619011' target='_blank'>Chang, M. et al. Nature Biotech. 2015</a>).");
+                        addNoteTooltip('.'+table_id+'-hotspot', cbio.util.getHotSpotDesc());
                     }
                     addDrugsTooltip("."+table_id+"-drug-tip", 'top right', 'bottom center');
                     addCosmicTooltip(table_id);
                     listenToBamIgvClick(".igv-link");
                     //drawPanCanThumbnails(this);
-                    if(oncokbInstance){
-                        oncokbInstance.addEvents(this, 'gene');
-                        oncokbInstance.addEvents(this, 'alteration');
-                        oncokbInstance.addEvents(this, 'column');
+                    if(mutationOncokbInstance){
+                        mutationOncokbInstance.addEvents(this, 'gene');
+                        mutationOncokbInstance.addEvents(this, 'alteration');
+                        mutationOncokbInstance.addEvents(this, 'column');
                     }
                 },
                 "bPaginate": true,
                 "sPaginationType": "two_button",
-                "aaSorting": [[mutTableIndices["cosmic"],'desc'],[mutTableIndices["altrate"],'desc'], [mutTableIndices["gene"], 'asc']],
+                "aaSorting": [[mutTableIndices["annotation"], 'asc'], [mutTableIndices["cosmic"],'desc'],[mutTableIndices["altrate"],'desc'], [mutTableIndices["gene"], 'asc']],
                 "oLanguage": {
                     "sInfo": "&nbsp;&nbsp;(_START_ to _END_ of _TOTAL_)&nbsp;&nbsp;",
                     "sInfoFiltered": "",
@@ -943,25 +930,6 @@
                 "iDisplayLength": iDisplayLength,
                 "aLengthMenu": [[5,10, 25, 50, 100, -1], [5, 10, 25, 50, 100, "All"]]
         } );
-
-        if(oncokbInstance) {
-            oncokbInstance.getEvidence().then(function () {
-                var tableData = oTable.fnGetData();
-                var oncokbEvidence = [];
-                _.each(tableData, function(ele, i) {
-                    oncokbEvidence.push(oncokbInstance.getVariant(ele[0]).evidence);
-                });
-                mutations.addData('oncokb', oncokbEvidence)
-                if (tableData.length > 0)
-                {
-                    _.each(tableData, function(ele, i) {
-                        oTable.fnUpdate(null, i, mutTableIndices["annotation"], false, false);
-                    });
-
-                    oTable.fnUpdate(null, 0, mutTableIndices['annotation']);
-                }
-            });
-        }
 
         oTable.css("width","100%");
         addNoteTooltip("#"+table_id+" th.mut-header");
@@ -1171,7 +1139,7 @@
                     <li>or recurrently mutated, namely\n\
                         <ul><li>MutSig Q < 0.05, if MutSig results are available</li>\n\
                         <li>otherwise, mutated in > 5% of samples in the study with &ge; 50 samples</li></ul> </li>\n\
-                    <li>or with > 5 overlapping entries in COSMIC.</li></ul>'/>";
+                    <li>or with > 5 overlapping entries in COSMIC.</li></ul>' alt='help' />";
                     }
                     $('.mutation-summary-table-name').html(mutationSummary);
                     $('#mutations-summary-help').qtip({
@@ -1251,7 +1219,37 @@
                                 _.extend(munge(byProteinPosResponse, "protein_start_with_hugo"), munge(byKeywordResponse, "keyword"), munge(byHugoResponse, "hugo")));
                         genomicEventObs.fire("pancan-mutation-frequency-built");
                     });
+                    
+                    // Get OncoKB info
+                    mutationOncokbInstance = initOncoKB('patient-mutation', genomicEventObs.mutations.getEventIds(false), genomicEventObs.mutations, 'mutation', function() {
+                        var mutationSummaryTable = $('#mutation_summary_table').dataTable();
+                        var mutationTable = $('#mutation_table').dataTable();
 
+                        var mutationSummaryTableData = mutationSummaryTable.fnGetData();
+                        var mutationTableData = mutationTable.fnGetData();
+
+                        var oncokbEvidence = [];
+                        _.each(mutationTableData, function(ele, i) {
+                            oncokbEvidence.push(mutationOncokbInstance.getVariant(ele[0]));
+                        });
+                        genomicEventObs.mutations.addData('oncokb', oncokbEvidence);
+
+                        if (mutationTableData.length > 0){
+                            _.each(mutationTableData, function(ele, i) {
+                                mutationTable.fnUpdate(null, i, mutTableIndices["annotation"], false, false);
+                            });
+
+                            mutationTable.fnUpdate(null, 0, mutTableIndices['annotation']);
+                        }
+
+                        if (mutationSummaryTableData.length > 0){
+                            _.each(mutationSummaryTableData, function(ele, i) {
+                                mutationSummaryTable.fnUpdate(null, i, mutTableIndices["annotation"], false, false);
+                            });
+
+                            mutationSummaryTable.fnUpdate(null, 0, mutTableIndices['annotation']);
+                        }
+                    });
                 }
                 ,"json"
         );
@@ -1418,7 +1416,7 @@
 
 </script>
 
-<div id="mutation_wait"><img src="images/ajax-loader.gif"/></div>
+<div id="mutation_wait"><img src="images/ajax-loader.gif" alt="loading" /></div>
 <div id="mutation_id_filter_msg"><font color="red">The following table contains filtered mutations.</font>
 <button onclick="unfilterMutationsTableByIds(); return false;" style="font-size: 1em;">Show all mutations</button></div>
 <div  id="pancan_mutations_histogram_container"></div>

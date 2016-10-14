@@ -372,6 +372,7 @@ var ccPlots = (function (Plotly, _, $) {
             } else {
                 _y = _.pluck(_.filter(_joint_profile_group, function(_result_obj) { return _result_obj.genetic_profile_id === _profile_id; }), "profile_data");
             }
+            
             var _box = {
                 y: _y,
                 x0: mrna_profiles.indexOf(_profile_id),
@@ -416,10 +417,19 @@ var ccPlots = (function (Plotly, _, $) {
                 tickmode: "array",
                 ticktext: _study_short_names,
                 tickvals: vals,
-                tickangle: 45
+                tickangle: 45,
+                linecolor: "#A9A9A9",
+                linewidth: 2,
+                titlefont: {
+                    color: "#000"
+                },
+                mirror: 'all'
             },
             yaxis: {
-                title: apply_log_scale?gene + ' Expression --- RNA Seq V2 (log)':gene + " Expression --- RNA Seq V2"
+                title: apply_log_scale?gene + ' Expression --- RNA Seq V2 (log)':gene + " Expression --- RNA Seq V2",
+                linecolor: "#A9A9A9",
+                linewidth: 2,
+                mirror: 'all'
             }
         };
 
@@ -443,7 +453,7 @@ var ccPlots = (function (Plotly, _, $) {
             // html 
             $("#cc_plots_select_study_box").append("select <a href='#' id='cc_plots_select_all'>all</a> / <a href='#' id='cc_plots_select_none'>none</a><br><br>");
             _.each(study_meta, function(_study_meta_obj) {
-                $("#cc_plots_select_study_box").append("<input type='checkbox' id='cc_plots_" + _study_meta_obj.id + "_sel' name='cc_plots_selected_studies' value='" + _study_meta_obj.id + "' checked>" + _study_meta_obj.name + "<br>");
+                $("#cc_plots_select_study_box").append("<input type='checkbox' id='cc_plots_" + _study_meta_obj.id + "_sel' name='cc_plots_selected_studies' value='" + _study_meta_obj.id + "' title='Select "+_study_meta_obj.name+"' checked>" + _study_meta_obj.name + "<br>");
             });
             $("#cc_plots_select_all").click(function() {
                 _.each(document.getElementsByName("cc_plots_selected_studies"), function(elem) { elem.checked = true; });
@@ -458,6 +468,16 @@ var ccPlots = (function (Plotly, _, $) {
             $("input[name='cc_plots_selected_studies']").change(function() {
                 ccPlots.update();
             });
+
+            // exclude certain studies
+            var _tmp_study_obj = _.filter(study_meta, function(obj) { return obj.id === 'esca_tcga'; })[0];
+            if (_tmp_study_obj !== undefined) {
+                document.getElementById("cc_plots_" + _tmp_study_obj.id + "_sel").checked = false;
+            }
+            _tmp_study_obj = _.filter(study_meta, function(obj) { return obj.id === 'stad_tcga'; })[0];
+            if (_tmp_study_obj !== undefined) {
+                document.getElementById("cc_plots_" + _tmp_study_obj.id + "_sel").checked = false;
+            }
             
             ccPlots.update();
         }
@@ -552,11 +572,14 @@ var ccPlots = (function (Plotly, _, $) {
             apply_log_scale = document.getElementById("cc_plots_log_scale").checked;
             show_mutations = document.getElementById("cc_plots_show_mutations").checked;
             $("#cc_plots_box").empty();
-            $("#cc_plots_box").append("<img src='images/ajax-loader.gif' id='cc_plots_loading' style='padding:200px;'/>");
+            $("#cc_plots_box").append("<img src='images/ajax-loader.gif' id='cc_plots_loading' style='padding:250px;' alt='loading' />");
             var _selected_study_ids = $("input[name=cc_plots_selected_studies]:checked").map(function() { return this.value; }).get();
             
             // re-generate the view
             fetch_profile_data(_selected_study_ids);
+        },
+        include_all: function() {
+            $("#cc_plots_study_selection_btn").click();
         }
         
     };

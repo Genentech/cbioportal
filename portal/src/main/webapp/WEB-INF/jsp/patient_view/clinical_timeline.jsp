@@ -74,8 +74,8 @@
             var caseId = caseIds[i];
             var clinicalData = clinicalDataMap[caseId];
             var compareAgainstIds = [caseId];
-            var OtherSampleId = guessClinicalData(clinicalData,["OTHER_SAMPLE_ID"]);
-            if (OtherSampleId) {
+            var OtherSampleId = clinicalData["OTHER_SAMPLE_ID"];
+            if (cbio.util.checkNullOrUndefined(OtherSampleId)) {
                 compareAgainstIds = compareAgainstIds.concat(OtherSampleId);
             }
             var circle = d3.selectAll(".timelineSeries_0").filter(function (x) {
@@ -101,7 +101,7 @@
                 g = $(circle[0]).parent();
                 g.prop("__data__", $(circle[0]).prop("__data__"));
                 fillColorAndLabelForCase(d3.select(g.get(0)), caseId);
-                clinicalTimeline.addDataPointTooltip(g);
+                window.pvTimeline.addDataPointTooltip(g);
             }
         }
     }
@@ -134,50 +134,66 @@
                         if (specRefNum) {
                             if (specRefNum.length > 1) {
                                 console.warn("More than 1 specimen reference number found in tooltip table");
-                            }
-                            sortOrder = caseIds.indexOf(specRefNum[0][1]);
-                            if (sortOrder === -1) {
-                                sortOrder = Infinity;
+                            } else if (specRefNum.length === 1) {
+                                sortOrder = caseIds.indexOf(specRefNum[0][1]);
+                                if (sortOrder === -1) {
+                                    sortOrder = Infinity;
+                                }
                             }
                         }
                         return sortOrder;
                     });
                 }
 
-                // add DECEASED point to STATUS track
-                if ("CAISIS_OS_STATUS" in patientInfo &&
-                    patientInfo["CAISIS_OS_STATUS"] === "DECEASED" &&
-                    "CAISIS_OS_MONTHS" in patientInfo) {
-                    var days = parseInt(parseInt(patientInfo["CAISIS_OS_MONTHS"])*30.4);
-                    var timePoint = {
-                        "starting_time":days,
-                        "ending_time":days,
-                        "display":"circle",
-                        "color": "#000",
-                        "tooltip_tables":[
-                            [
-                                ["START_DATE", days],
-                                ["STATUS", "DECEASED"]
+                // add DECEASED point to Status track using data from
+                // .*OS_MONTHS$ if .*OS_STATUS$ is DECEASED
+                var i;
+                var prefixes;
+                prefixes = Object.keys(patientInfo).filter(function (x) {
+                    // find all keys postfixed with "OS_STATUS"
+                    return /OS_STATUS$/.test(x);
+                }).map(function(x) {
+                    // get the prefixes
+                    return x.substr(0, x.length-"OS_STATUS".length);
+                });
+
+                for (i=0; i < prefixes.length; i++) {
+                    var prefix = prefixes[i];
+                    if (patientInfo[prefix+"OS_STATUS"] === "DECEASED" &&
+                        prefix + "OS_MONTHS" in patientInfo) {
+                        var days = parseInt(parseInt(patientInfo[prefix+"OS_MONTHS"])*30.4);
+                        var timePoint = {
+                            "starting_time":days,
+                            "ending_time":days,
+                            "display":"circle",
+                            "color": "#000",
+                            "tooltip_tables":[
+                                [
+                                    ["START_DATE", days],
+                                    ["STATUS", "DECEASED"]
+                                ]
                             ]
-                        ]
-                    }
+                        }
 
-                    var trackData = timeData.filter(function(x) {
-                       return x.label === "STATUS";
-                    })[0];
+                        var trackData = timeData.filter(function(x) {
+                           return x.label === "Status";
+                        })[0];
 
-                    if (trackData) {
-                        trackData.times = trackData.times.concat(timePoint);
-                    } else {
-                        timeData = timeData.concat({
-                            "label":"STATUS",
-                            "times":[timePoint]
-                        });
+                        if (trackData) {
+                            trackData.times = trackData.times.concat(timePoint);
+                        } else {
+                            timeData = timeData.concat({
+                                "label":"Status",
+                                "times":[timePoint]
+                            });
+                        }
+                        // Add timepoint only once in case of multiple prefixes
+                        break;
                     }
                 }
 
                 var width = $("#td-content").width() - 75;
-                var timeline = clinicalTimeline
+                window.pvTimeline = clinicalTimeline()
                         .width(width)
                         .data(timeData)
                         .divId("#timeline")
@@ -194,9 +210,9 @@
                         .collapseAll()
                         .toggleTrackCollapse("Specimen")
                         .enableTrackTooltips(false)
-                        .enableZoom(false)
+						.plugins([{obj: new trimClinicalTimeline("Trim Timeline"), enabled: true}])
                         .addPostTimelineHook(plotCaseLabelsInTimeline);
-                timeline();
+                window.pvTimeline();
                 $("#timeline-container").show();
             }
             ,"json"

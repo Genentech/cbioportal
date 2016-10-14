@@ -363,13 +363,23 @@ function getMapping() {
 //  Determine whether to submit a cross-cancer query or
 //  a study-specific query
 function chooseAction(evt) {
-    var haveExpInQuery = $("#gene_list").val().toUpperCase().search("EXP") > -1;
     $(".error_box").remove();
-       
+       var haveExpInQuery = false;
        if (!window.changingTabs) {
 		// validate OQL
 		try {
-			oql_parser.parse($('#gene_list').val());
+			var parsed_result = oql_parser.parse($('#gene_list').val());
+			for (var i = 0; i < parsed_result.length; i++) {
+			    for (var j = 0; j < parsed_result[i].alterations.length; j++) {
+				if (parsed_result[i].alterations[j].constr_val === "EXP") {
+				    haveExpInQuery = true;
+				    break;
+				}
+			    }
+			    if (haveExpInQuery) {
+				break;
+			    }
+			}
 		} catch (err) {
 			var offset = err.offset;
 			if (offset === $('#gene_list').val().length) {
@@ -627,7 +637,7 @@ function updateCancerStudyInformation() {
     addGenomicProfiles(cancer_study.genomic_profiles, "METHYLATION", PROFILE_METHYLATION, "DNA Methylation");
     addGenomicProfiles(cancer_study.genomic_profiles, "METHYLATION_BINARY", PROFILE_METHYLATION, "DNA Methylation");
     //addGenomicProfiles(cancer_study.genomic_profiles, "PROTEIN_LEVEL", PROFILE_PROTEIN, "Protein Level");
-    addGenomicProfiles(cancer_study.genomic_profiles, "PROTEIN_LEVEL", PROFILE_PROTEIN_EXPRESSION, "Protein/phosphoprotein level (by RPPA)");
+    addGenomicProfiles(cancer_study.genomic_profiles, "PROTEIN_LEVEL", PROFILE_PROTEIN_EXPRESSION, "Protein/phosphoprotein level");
 
 
     //  if no genomic profiles available, set message and disable submit button
@@ -688,7 +698,7 @@ function updateCancerStudyInformation() {
     // check if cancer study has a clinical_free_form data to filter,
     // if there is data to filter, then enable "build custom case set" link,
     // otherwise disable the button
-    jQuery.getJSON("ClinicalFreeForm.json",
+    /*jQuery.getJSON("ClinicalFreeForm.json",
 		{studyId: $("#select_single_study").val()},
 		function(json){
 			var noDataToFilter = false;
@@ -718,9 +728,9 @@ function updateCancerStudyInformation() {
 			if (noDataToFilter)
 			{
 				// no clinical_free_form data to filter for the current
-				// cancer study, so disable the button
+	*/			// cancer study, so disable the button
 				$("#build_custom_case_set").hide();
-			}
+	/*		}
 			else
 			{
 				$("#build_custom_case_set").tipTip({defaultPosition: "right",
@@ -730,7 +740,7 @@ function updateCancerStudyInformation() {
 				
 				$("#build_custom_case_set").hide();//.show(); temporarily disabled build case list
 			}
-		});
+		});*/
 }
 //  Triggered when a cancer study has been selected, either by the user
 //  or programatically.
@@ -823,13 +833,19 @@ function addMetaDataToPage() {
         }
     }
     // Add studies to tree, and climb up adding one to each level's descendant studies
-    // DMP hack
-    var dmp_studies = [];
+    // Insert priority studies
+    // 
+    var priority_study_ids = {};
+    for (var i=0; i<window.priority_studies.length; i++) {
+	for (var j=0; j<window.priority_studies[i].studies.length; j++) {
+	    priority_study_ids[window.priority_studies[i].studies[j]] = true;
+	}
+    }
+    // 
     for (var study in json.cancer_studies) {
-	if (study.indexOf("mskimpact") !== -1) {
-		// DMP hack
-		dmp_studies.push(study);
-	} else if (json.cancer_studies.hasOwnProperty(study) && study !== 'all') { // don't re-add 'all'
+	if (priority_study_ids.hasOwnProperty(study)) {
+	    continue;
+	} else if (study !== 'all') { // don't re-add 'all'
             try {
                 var code = json.cancer_studies[study].type_of_cancer.toLowerCase();
 		var lineage = [];
@@ -850,23 +866,6 @@ function addMetaDataToPage() {
             }
         }
     }
-    // Sort dmp by number if there is one in the name
-    dmp_studies.sort(function(a,b) {
-	var matchA = a.match(/\d+/);
-	var matchB = b.match(/\d+/);
-	var numberA = (matchA === null ? NaN : parseInt(a.match(/\d+/)[0], 10));
-	var numberB = (matchB === null ? NaN : parseInt(b.match(/\d+/)[0], 10));
-	if (isNaN(numberA) && isNaN(numberB)) {
-		return a.localeCompare(b);
-	} else if (isNaN(numberA)) {
-		return -1;
-	} else if (isNaN(numberB)) {
-		return 1;
-	} else {
-		return numberA-numberB;
-	}
-    });
-    dmp_studies.reverse();
     // Sort all the children alphabetically
     for (var node in oncotree) {
         if (oncotree.hasOwnProperty(node)) {
@@ -902,35 +901,39 @@ function addMetaDataToPage() {
     window.jstree_root_id = 'tissue';
     var jstree_data = [];
     var flat_jstree_data = [];
-    jstree_data.push({'id':jstree_root_id, parent:'#', text:'All', state:{opened:true}, li_attr:{name:'All'}});
-    flat_jstree_data.push({'id':jstree_root_id, parent:'#', text:'All', state:{opened:true}, li_attr:{name:'All'}});
+    jstree_data.push({'id': jstree_root_id, parent: '#', text: 'All', state: {opened: true}, li_attr: {name: 'All'}});
+    flat_jstree_data.push({'id': jstree_root_id, parent: '#', text: 'All', state: {opened: true}, li_attr: {name: 'All'}});
     var node_queue = [].concat(oncotree['tissue'].children);
     var currNode;
-    if (dmp_studies.length > 0) {
-	jstree_data.push({'id':'mskimpact-study-group', 'parent':jstree_root_id, 'text':'MSKCC DMP', 'li_attr':{name:'MSKCC DMP'}});
-	var studyName;
-	var numSamplesInStudy;
-	var samplePlurality;
-	$.each(dmp_studies, function(ind, id) {
-		studyName = truncateStudyName(json.cancer_studies[id].name);
-		numSamplesInStudy = json.cancer_studies[id].num_samples;
-		if (numSamplesInStudy == 1) {
-                	samplePlurality = 'sample';
-                }
-               	else if (numSamplesInStudy > 1) {
-               		samplePlurality = 'samples';
-               	}
-                else {
-                	samplePlurality = '';
-               		numSamplesInStudy = '';
-                }
-		jstree_data.push({'id':id, 'parent':'mskimpact-study-group', 'text':studyName.concat('<span style="font-weight:normal;font-style:italic;"> '+ numSamplesInStudy + ' ' + samplePlurality + '</span>'), 
-			'li_attr':{name: studyName, description: metaDataJson.cancer_studies[id].description}});
-		
-		flat_jstree_data.push({'id':id, 'parent':jstree_root_id, 'text':truncateStudyName(json.cancer_studies[id].name), 
-			'li_attr':{name: studyName, description: metaDataJson.cancer_studies[id].description, search_terms: 'MSKCC DMP'}});
-	});
+    if (window.priority_studies.length > 0) {
+	for (var i = 0; i < window.priority_studies.length; i++) {
+	    var priority_study_obj = window.priority_studies[i];
+	    if (priority_study_obj.studies.filter(function(s) { return json.cancer_studies.hasOwnProperty(s); }).length > 0) {
+		var category_id = 'priority-group-' + i;
+		jstree_data.push({'id': category_id, 'parent': jstree_root_id, 'text': priority_study_obj.category, 'li_attr': {name: priority_study_obj.category}});
+		$.each(priority_study_obj.studies, function (ind, id) {
+		    if (json.cancer_studies.hasOwnProperty(id)) {
+			studyName = truncateStudyName(json.cancer_studies[id].name);
+			numSamplesInStudy = json.cancer_studies[id].num_samples;
+			if (numSamplesInStudy == 1) {
+			    samplePlurality = 'sample';
+			} else if (numSamplesInStudy > 1) {
+			    samplePlurality = 'samples';
+			} else {
+			    samplePlurality = '';
+			    numSamplesInStudy = '';
+			}
+			jstree_data.push({'id': id, 'parent': category_id, 'text': studyName.concat('<span style="font-weight:normal;font-style:italic;"> ' + numSamplesInStudy + ' ' + samplePlurality + '</span>'),
+			    'li_attr': {name: studyName, description: metaDataJson.cancer_studies[id].description, search_terms: priority_study_obj.category}});
+
+			flat_jstree_data.push({'id': id, 'parent': jstree_root_id, 'text': truncateStudyName(json.cancer_studies[id].name),
+			    'li_attr': {name: studyName, description: metaDataJson.cancer_studies[id].description, search_terms: priority_study_obj.category}});
+		    }
+		});
+	    }
+	}
     }
+    
     while (node_queue.length > 0) {
 	    currNode = node_queue.shift();
 	    if (currNode.desc_studies_count > 0) {
@@ -1320,6 +1323,9 @@ initialize_jstree(window.tab_index === "tab_download" ? flat_jstree_data : jstre
 		var minSearchableItems = 10;
 		$("#select_gene_set").chosen({ width: '620px', search_contains: true});
 		$("#select_case_set").chosen({ width: '420px', disable_search_threshold: minSearchableItems, search_contains: true });
+		// add a title to the text input fields generated by Chosen for
+		// Section 508 accessibility compliance
+		$("div.chzn-search > input:first-child").attr("title", "Search");
 		$.each(selected_study_map, function(key, val) {
 			if (val) {
 				$("#jstree").jstree(true).select_node(key, true);
@@ -1403,9 +1409,11 @@ function addGenomicProfiles (genomic_profiles, targetAlterationType, targetClass
         $('#main_submit').attr('disabled', false);
         //  If we have more than 1 profile, output group checkbox
         //  assign a class to associate the checkbox with any subgroups (radio buttons)
-        profileHtml += "<input type='checkbox' class='" + targetClass + "'>"
-         + targetTitle + " data."
-            + " Select one of the profiles below:";
+        profileHtml += "<div class='checkbox'><label>"
+            + "<input type='checkbox' class='" + targetClass + "'>"
+            + targetTitle + " data."
+            + " Select one of the profiles below:"
+            + "</label></div>";
         profileHtml += "<div class='genomic_profiles_subgroup'>";
     }
 
@@ -1438,18 +1446,20 @@ function addGenomicProfiles (genomic_profiles, targetAlterationType, targetClass
 
     if(targetClass == PROFILE_MRNA_EXPRESSION && downloadTab == false){
         var inputName = 'Z_SCORE_THRESHOLD';
-        profileHtml += "<div id='z_score_threshold' class='score_threshold'>Enter a z-score threshold &#177: "
+        profileHtml += "<div id='z_score_threshold' class='score_threshold'>"
+        + "<label>Enter a z-score threshold &#177: "
         + "<input type='text' name='" + inputName + "' size='6' value='"
                 + window.zscore_threshold + "'>"
-        + "</div>";
+        + "</label></div>";
     }
 
     if(targetClass == PROFILE_PROTEIN_EXPRESSION && downloadTab == false){
         var inputName = 'RPPA_SCORE_THRESHOLD';
-        profileHtml += "<div id='rppa_score_threshold' class='score_threshold'>Enter a RPPA z-score threshold &#177: "
+        profileHtml += "<div id='rppa_score_threshold' class='score_threshold'>"
+        + "<label>Enter a z-score threshold &#177: "
         + "<input type='text' name='" + inputName + "' size='6' value='"
                 + window.rppa_score_threshold + "'>"
-        + "</div>";
+        + "</label></div>";
     }
     
     $("#genomic_profiles").append(profileHtml);
@@ -1471,13 +1481,16 @@ function outputGenomicProfileOption (downloadTab, optionType, targetClass, id, n
         paramName = "genetic_profile_ids_" + targetClass;
     }
 
-    var html =  "<input type='" + optionType + "' "
-        + "id='" + id + "'"
+    var html =  "<div class='" + optionType + "'>"
+        + "<label>"
+        + "<input type='" + optionType + "'"
+        + " id='" + id + "'"
         + " name='" + paramName + "'"
         + " class='" + targetClass + "'"
-        + " value='" + id +"'>" + '&nbsp;&nbsp;' + name + "</input>"
-        + "  <img class='profile_help' src='images/help.png' title='"
-        + description + "'><br/>";
+        + " value='" + id + "' />"
+        + name
+        + "  <img class='profile_help' alt='help' src='images/help.png' title='"
+        + description + "'></label></div>";
     return html;
 }
 
